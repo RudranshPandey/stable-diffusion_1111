@@ -1,0 +1,53 @@
+#@markdown # Install/Update AUTOMATIC1111 repo
+from IPython.utils import capture
+from IPython.display import clear_output
+from subprocess import getoutput
+import ipywidgets as widgets
+import sys
+import fileinput
+import os
+import time
+import base64
+import requests
+from urllib.request import urlopen, Request
+from urllib.parse import urlparse, parse_qs, unquote
+from tqdm import tqdm
+import six
+
+
+blsaphemy=base64.b64decode(("ZWJ1aQ==").encode('ascii')).decode('ascii')
+
+if not os.path.exists("/content/gdrive"):
+  print('[1;31mGdrive not connected, using temporary colab storage ...')
+  time.sleep(4)
+  mainpth="MyDrive"
+  !mkdir -p /content/gdrive/$mainpth
+  Shared_Drive=""
+
+if Shared_Drive!="" and not os.path.exists("/content/gdrive/Shareddrives"):
+  print('[1;31mShared drive not detected, using default MyDrive')
+  mainpth="MyDrive"
+
+with capture.capture_output() as cap:
+  def inf(msg, style, wdth): inf = widgets.Button(description=msg, disabled=True, button_style=style, layout=widgets.Layout(min_width=wdth));display(inf)
+  fgitclone = "git clone --depth 1"
+  %mkdir -p /content/gdrive/$mainpth/sd
+  %cd /content/gdrive/$mainpth/sd
+  !git clone -q --branch master https://github.com/AUTOMATIC1111/stable-diffusion-w$blsaphemy
+  !mkdir -p /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/cache/
+  os.environ['TRANSFORMERS_CACHE']=f"/content/gdrive/{mainpth}/sd/stable-diffusion-w"+blsaphemy+"/cache"
+  os.environ['TORCH_HOME'] = f"/content/gdrive/{mainpth}/sd/stable-diffusion-w"+blsaphemy+"/cache"
+  !mkdir -p /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/repositories
+  !git clone https://github.com/AUTOMATIC1111/stable-diffusion-w$blsaphemy-assets /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/repositories/stable-diffusion-webui-assets
+
+with capture.capture_output() as cap:
+  %cd /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/
+  !git reset --hard
+  !git checkout master
+  time.sleep(1)
+  !rm webui.sh
+  !git pull
+clear_output()
+inf('\u2714 Done','success', '50px')
+
+#@markdown ---
