@@ -1,0 +1,188 @@
+#@markdown # Model Download/Load
+
+import gdown
+from gdown.download import get_url_from_gdrive_confirmation
+import re
+
+Use_Temp_Storage = False #@param {type:"boolean"}
+#@markdown - If not, make sure you have enough space on your gdrive
+
+#@markdown ---
+
+Model_Version = "SDXL" #@param ["SDXL", "1.5", "v1.5 Inpainting", "V2.1-768px"]
+
+#@markdown Or
+PATH_to_MODEL = "" #@param {type:"string"}
+#@markdown - Insert the full path of your custom model or to a folder containing multiple models
+
+#@markdown Or
+MODEL_LINK = "" #@param {type:"string"}
+
+
+def getsrc(url):
+    parsed_url = urlparse(url)
+    if parsed_url.netloc == 'civitai.com':
+        src='civitai'
+    elif parsed_url.netloc == 'drive.google.com':
+        src='gdrive'
+    elif parsed_url.netloc == 'huggingface.co':
+        src='huggingface'
+    else:
+        src='others'
+    return src
+
+src=getsrc(MODEL_LINK)
+
+def get_name(url, gdrive):
+    if not gdrive:
+        response = requests.get(url, allow_redirects=False)
+        if "Location" in response.headers:
+            redirected_url = response.headers["Location"]
+            quer = parse_qs(urlparse(redirected_url).query)
+            if "response-content-disposition" in quer:
+                disp_val = quer["response-content-disposition"][0].split(";")
+                for vals in disp_val:
+                    if vals.strip().startswith("filename="):
+                        filenm=unquote(vals.split("=", 1)[1].strip())
+                        return filenm.replace("\"","")
+    else:
+        headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36"}
+        lnk="https://drive.google.com/uc?id={id}&export=download".format(id=url[url.find("/d/")+3:url.find("/view")])
+        res = requests.session().get(lnk, headers=headers, stream=True, verify=True)
+        res = requests.session().get(get_url_from_gdrive_confirmation(res.text), headers=headers, stream=True, verify=True)
+        content_disposition = six.moves.urllib_parse.unquote(res.headers["Content-Disposition"])
+        filenm = re.search('attachment; filename="(.*?)"', content_disposition).groups()[0]
+        return filenm
+
+
+def dwn(url, dst, msg):
+    file_size = None
+    req = Request(url, headers={"User-Agent": "torch.hub"})
+    u = urlopen(req)
+    meta = u.info()
+    if hasattr(meta, 'getheaders'):
+        content_length = meta.getheaders("Content-Length")
+    else:
+        content_length = meta.get_all("Content-Length")
+    if content_length is not None and len(content_length) > 0:
+        file_size = int(content_length[0])
+
+    with tqdm(total=file_size, disable=False, mininterval=0.5,
+              bar_format=msg+' |{bar:20}| {percentage:3.0f}%') as pbar:
+        with open(dst, "wb") as f:
+            while True:
+                buffer = u.read(8192)
+                if len(buffer) == 0:
+                    break
+                f.write(buffer)
+                pbar.update(len(buffer))
+            f.close()
+
+
+def sdmdls(ver, Use_Temp_Storage):
+
+  if ver=='1.5':
+    if Use_Temp_Storage:
+      os.makedirs('/content/temp_models', exist_ok=True)
+      model='/content/temp_models/v1-5-pruned-emaonly.safetensors'
+    else:
+      model='/content/gdrive/'+mainpth+'/sd/stable-diffusion-w'+blsaphemy+'/models/Stable-diffusion/v1-5-pruned-emaonly.safetensors'
+    link='https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors'
+  elif ver=='V2.1-768px':
+    if Use_Temp_Storage:
+      os.makedirs('/content/temp_models', exist_ok=True)
+      model='/content/temp_models/v2-1_768-ema-pruned.safetensors'
+    else:
+      model='/content/gdrive/'+mainpth+'/sd/stable-diffusion-w'+blsaphemy+'/models/Stable-diffusion/v2-1_768-ema-pruned.safetensors'
+    link='https://huggingface.co/stabilityai/stable-diffusion-2-1/resolve/main/v2-1_768-ema-pruned.safetensors'
+  elif ver=='v1.5 Inpainting':
+    if Use_Temp_Storage:
+      os.makedirs('/content/temp_models', exist_ok=True)
+      model='/content/temp_models/sd-v1-5-inpainting.ckpt'
+    else:
+      model='/content/gdrive/'+mainpth+'/sd/stable-diffusion-w'+blsaphemy+'/models/Stable-diffusion/sd-v1-5-inpainting.ckpt'
+    link='https://huggingface.co/runwayml/stable-diffusion-inpainting/resolve/main/sd-v1-5-inpainting.ckpt'
+  elif ver=='SDXL':
+    if Use_Temp_Storage:
+      os.makedirs('/content/temp_models', exist_ok=True)
+      model='/content/temp_models/sd_xl_base_1.0.safetensors'
+    else:
+      model='/content/gdrive/'+mainpth+'/sd/stable-diffusion-w'+blsaphemy+'/models/Stable-diffusion/sd_xl_base_1.0.safetensors'
+    link='https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors'
+
+  if not os.path.exists(model):
+    !gdown --fuzzy -O $model $link
+    if os.path.exists(model):
+      clear_output()
+      inf('\u2714 Done','success', '50px')
+    else:
+      inf('\u2718 Something went wrong, try again','danger', "250px")
+  else:
+      clear_output()
+      inf('\u2714 Model already exists','primary', '300px')
+
+  return model
+
+
+if (PATH_to_MODEL !=''):
+  if os.path.exists(str(PATH_to_MODEL)):
+    inf('\u2714 Using the trained model.','success', '200px')
+
+  else:
+      while not os.path.exists(str(PATH_to_MODEL)):
+        inf('\u2718 Wrong path, use the colab file explorer to copy the path : ','danger', "400px")
+        PATH_to_MODEL=input()
+      if os.path.exists(str(PATH_to_MODEL)):
+        inf('\u2714 Using the custom model.','success', '200px')
+
+  model=PATH_to_MODEL
+
+elif MODEL_LINK != "":
+
+      if src=='civitai':
+         modelname=get_name(MODEL_LINK, False)
+         if Use_Temp_Storage:
+            os.makedirs('/content/temp_models', exist_ok=True)
+            model=f'/content/temp_models/{modelname}'
+         else:
+            model=f'/content/gdrive/{mainpth}/sd/stable-diffusion-w{blsaphemy}/models/Stable-diffusion/{modelname}'
+         if not os.path.exists(model):
+            dwn(MODEL_LINK, model, 'Downloading the custom model')
+            clear_output()
+         else:
+            inf('\u2714 Model already exists','primary', '300px')
+      elif src=='gdrive':
+         modelname=get_name(MODEL_LINK, True)
+         if Use_Temp_Storage:
+            os.makedirs('/content/temp_models', exist_ok=True)
+            model=f'/content/temp_models/{modelname}'
+         else:
+            model=f'/content/gdrive/{mainpth}/sd/stable-diffusion-w{blsaphemy}/models/Stable-diffusion/{modelname}'
+         if not os.path.exists(model):
+            gdown.download(url=MODEL_LINK, output=model, quiet=False, fuzzy=True)
+            clear_output()
+         else:
+            inf('\u2714 Model already exists','primary', '300px')
+      else:
+         modelname=os.path.basename(MODEL_LINK)
+         if Use_Temp_Storage:
+            os.makedirs('/content/temp_models', exist_ok=True)
+            model=f'/content/temp_models/{modelname}'
+         else:
+            model=f'/content/gdrive/{mainpth}/sd/stable-diffusion-w{blsaphemy}/models/Stable-diffusion/{modelname}'
+         if not os.path.exists(model):
+            gdown.download(url=MODEL_LINK, output=model, quiet=False, fuzzy=True)
+            clear_output()
+         else:
+            inf('\u2714 Model already exists','primary', '700px')
+
+      if os.path.exists(model) and os.path.getsize(model) > 1810671599:
+        inf('\u2714 Model downloaded, using the custom model.','success', '300px')
+      else:
+        !rm model
+        inf('\u2718 Wrong link, check that the link is valid','danger', "300px")
+
+else:
+  model=sdmdls(Model_Version, Use_Temp_Storage)
+
+#@markdown ---
