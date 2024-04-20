@@ -1,0 +1,34 @@
+#@markdown # Requirements
+
+print('[1;32mInstalling requirements...')
+
+with capture.capture_output() as cap:
+  %cd /content/
+  !wget -q -i https://raw.githubusercontent.com/TheLastBen/fast-stable-diffusion/main/Dependencies/A1111.txt
+  !dpkg -i *.deb
+  if not os.path.exists('/content/gdrive/'+mainpth+'/sd/stablediffusion'):
+    !tar -C /content/gdrive/$mainpth --zstd -xf sd_mrep.tar.zst
+  !tar -C / --zstd -xf gcolabdeps.tar.zst
+  !rm *.deb | rm *.zst | rm *.txt
+  if not os.path.exists('gdrive/'+mainpth+'/sd/libtcmalloc/libtcmalloc_minimal.so.4'):
+    %env CXXFLAGS=-std=c++14
+    !wget -q https://github.com/gperftools/gperftools/releases/download/gperftools-2.5/gperftools-2.5.tar.gz && tar zxf gperftools-2.5.tar.gz && mv gperftools-2.5 gperftools
+    !wget -q https://github.com/TheLastBen/fast-stable-diffusion/raw/main/AUTOMATIC1111_files/Patch
+    %cd /content/gperftools
+    !patch -p1 < /content/Patch
+    !./configure --enable-minimal --enable-libunwind --enable-frame-pointers --enable-dynamic-sized-delete-support --enable-sized-delete --enable-emergency-malloc; make -j4
+    !mkdir -p /content/gdrive/$mainpth/sd/libtcmalloc && cp .libs/libtcmalloc*.so* /content/gdrive/$mainpth/sd/libtcmalloc
+    %env LD_PRELOAD=/content/gdrive/$mainpth/sd/libtcmalloc/libtcmalloc_minimal.so.4
+    %cd /content
+    !rm *.tar.gz Patch && rm -r /content/gperftools
+  else:
+    %env LD_PRELOAD=/content/gdrive/$mainpth/sd/libtcmalloc/libtcmalloc_minimal.so.4
+
+  os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+  os.environ['PYTHONWARNINGS'] = 'ignore'
+  !sed -i 's@text = _formatwarnmsg(msg)@text =\"\"@g' /usr/lib/python3.10/warnings.py
+
+clear_output()
+inf('\u2714 Done','success', '50px')
+
+#@markdown ---
