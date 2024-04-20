@@ -1,0 +1,22 @@
+#@markdown # Connect Google Drive
+from google.colab import drive
+from IPython.display import clear_output
+import ipywidgets as widgets
+import os
+
+def inf(msg, style, wdth): inf = widgets.Button(description=msg, disabled=True, button_style=style, layout=widgets.Layout(min_width=wdth));display(inf)
+Shared_Drive = "" #@param {type:"string"}
+#@markdown - Leave empty if you're not using a shared drive
+
+print("[0;33mConnecting...")
+drive.mount('/content/gdrive')
+
+if Shared_Drive!="" and os.path.exists("/content/gdrive/Shareddrives"):
+  mainpth="Shareddrives/"+Shared_Drive
+else:
+  mainpth="MyDrive"
+
+clear_output()
+inf('\u2714 Done','success', '50px')
+
+#@markdown ---
