@@ -1,0 +1,96 @@
+#@markdown # Start Stable-Diffusion
+from IPython.utils import capture
+import time
+import sys
+import fileinput
+from pyngrok import ngrok, conf
+import re
+
+
+Use_Cloudflare_Tunnel = False #@param {type:"boolean"}
+#@markdown - Offers better gradio responsivity
+
+Ngrok_token = "" #@param {type:"string"}
+
+#@markdown - Input your ngrok token if you want to use ngrok server
+
+User = "" #@param {type:"string"}
+Password= "" #@param {type:"string"}
+#@markdown - Add credentials to your Gradio interface (optional)
+
+auth=f"--gradio-auth {User}:{Password}"
+if User =="" or Password=="":
+  auth=""
+
+
+with capture.capture_output() as cap:
+  %cd /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/modules/
+  !wget -q -O extras.py https://raw.githubusercontent.com/AUTOMATIC1111/stable-diffusion-w$blsaphemy/master/modules/extras.py
+  !wget -q -O sd_models.py https://raw.githubusercontent.com/AUTOMATIC1111/stable-diffusion-w$blsaphemy/master/modules/sd_models.py
+  !wget -q -O /usr/local/lib/python3.10/dist-packages/gradio/blocks.py https://raw.githubusercontent.com/TheLastBen/fast-stable-diffusion/main/AUTOMATIC1111_files/blocks.py
+  %cd /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/
+  
+  !sed -i 's@shared.opts.data\["sd_model_checkpoint"] = checkpoint_info.title@shared.opts.data\["sd_model_checkpoint"] = checkpoint_info.title;model.half()@' /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/modules/sd_models.py
+  #!sed -i 's@ui.create_ui().*@ui.create_ui();shared.demo.queue(concurrency_count=999999,status_update_rate=0.1)@' /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/webui.py
+  !sed -i "s@map_location='cpu'@map_location='cuda'@" /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/modules/extras.py
+
+  !sed -i 's@possible_sd_paths =.*@possible_sd_paths = [\"/content/gdrive/{mainpth}/sd/stablediffusion\"]@' /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/modules/paths.py
+  !sed -i 's@\.\.\/@src/@g' /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/modules/paths.py
+  !sed -i 's@src/generative-models@generative-models@g' /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/modules/paths.py
+
+  !sed -i 's@print(\"No module.*@@' /content/gdrive/$mainpth/sd/stablediffusion/ldm/modules/diffusionmodules/model.py
+  !sed -i 's@\["sd_model_checkpoint"\]@\["sd_model_checkpoint", "sd_vae", "CLIP_stop_at_last_layers", "inpainting_mask_weight", "initial_noise_multiplier"\]@g' /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/modules/shared.py
+
+share=''
+if Ngrok_token!="":
+  ngrok.kill()
+  srv=ngrok.connect(7860, pyngrok_config=conf.PyngrokConfig(auth_token=Ngrok_token) , bind_tls=True).public_url
+
+  for line in fileinput.input('/usr/local/lib/python3.10/dist-packages/gradio/blocks.py', inplace=True):
+    if line.strip().startswith('self.server_name ='):
+        line = f'            self.server_name = "{srv[8:]}"\n'
+    if line.strip().startswith('self.protocol = "https"'):
+        line = '            self.protocol = "https"\n'
+    if line.strip().startswith('if self.local_url.startswith("https") or self.is_colab'):
+        line = ''
+    if line.strip().startswith('else "http"'):
+        line = ''
+    sys.stdout.write(line)
+
+elif Use_Cloudflare_Tunnel:
+  with capture.capture_output() as cap:
+    !pkill cloudflared
+    time.sleep(4)
+    !nohup cloudflared tunnel --url http://localhost:7860 > /content/srv.txt 2>&1 &
+    time.sleep(4)
+    with open('/content/srv.txt', "r") as file: text = file.read()
+    srv= re.findall(r"https?://(?:\S+?\.)?trycloudflare\.com\S*", text)[0]
+
+    for line in fileinput.input('/usr/local/lib/python3.10/dist-packages/gradio/blocks.py', inplace=True):
+      if line.strip().startswith('self.server_name ='):
+          line = f'            self.server_name = "{srv[8:]}"\n'
+      if line.strip().startswith('self.protocol = "https"'):
+          line = '            self.protocol = "https"\n'
+      if line.strip().startswith('if self.local_url.startswith("https") or self.is_colab'):
+          line = ''
+      if line.strip().startswith('else "http"'):
+          line = ''
+      sys.stdout.write(line)
+
+    !rm /content/srv.txt
+
+else:
+  share='--share'
+
+ckptdir=''
+if os.path.exists('/content/temp_models'):
+  ckptdir='--ckpt-dir /content/temp_models'
+
+try:
+  model
+  if os.path.isfile(model):
+    !python /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/webui.py $share --api --disable-safe-unpickle --enable-insecure-extension-access --no-download-sd-model --no-half-vae  --ckpt "$model" --xformers $auth --disable-console-progressbars --skip-version-check $ckptdir
+  else:
+    !python /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/webui.py $share --api --disable-safe-unpickle --enable-insecure-extension-access --no-download-sd-model --no-half-vae  --ckpt-dir "$model" --xformers $auth --disable-console-progressbars --skip-version-check
+except:
+   !python /content/gdrive/$mainpth/sd/stable-diffusion-w$blsaphemy/webui.py $share --api --disable-safe-unpickle --enable-insecure-extension-access --no-download-sd-model --no-half-vae --xformers $auth --disable-console-progressbars --skip-version-check $ckptdir
