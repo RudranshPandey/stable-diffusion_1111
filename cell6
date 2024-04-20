@@ -1,0 +1,42 @@
+#@markdown # Download LoRA
+
+LoRA_LINK = "" #@param {type:"string"}
+
+if LoRA_LINK == "":
+  inf('\u2714 Nothing to do','primary', '200px')
+else:
+  os.makedirs('/content/gdrive/'+mainpth+'/sd/stable-diffusion-w'+blsaphemy+'/models/Lora', exist_ok=True)
+
+  src=getsrc(LoRA_LINK)
+
+  if src=='civitai':
+      modelname=get_name(LoRA_LINK, False)
+      loramodel=f'/content/gdrive/{mainpth}/sd/stable-diffusion-w{blsaphemy}/models/Lora/{modelname}'
+      if not os.path.exists(loramodel):
+        dwn(LoRA_LINK, loramodel, 'Downloading the LoRA model '+modelname)
+        clear_output()
+      else:
+        inf('\u2714 Model already exists','primary', '200px')
+  elif src=='gdrive':
+      modelname=get_name(LoRA_LINK, True)
+      loramodel=f'/content/gdrive/{mainpth}/sd/stable-diffusion-w{blsaphemy}/models/Lora/{modelname}'
+      if not os.path.exists(loramodel):
+        gdown.download(url=LoRA_LINK, output=loramodel, quiet=False, fuzzy=True)
+        clear_output()
+      else:
+        inf('\u2714 Model already exists','primary', '200px')
+  else:
+      modelname=os.path.basename(LoRA_LINK)
+      loramodel=f'/content/gdrive/{mainpth}/sd/stable-diffusion-w{blsaphemy}/models/Lora/{modelname}'
+      if not os.path.exists(loramodel):
+        gdown.download(url=LoRA_LINK, output=loramodel, quiet=False, fuzzy=True)
+        clear_output()
+      else:
+        inf('\u2714 Model already exists','primary', '200px')
+
+  if os.path.exists(loramodel) :
+    inf('\u2714 LoRA downloaded','success', '200px')
+  else:
+    inf('\u2718 Wrong link, check that the link is valid','danger', "300px")
+
+#@markdown ---
